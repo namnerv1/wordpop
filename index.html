@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#fff4e0">
-<title>WordPop V0.2.0</title>
+<title>WordPop V0.3.0</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -75,6 +75,16 @@ svg.art{width:100%;height:100%;display:block;overflow:visible}
 @keyframes laughs{from{transform:rotate(-4deg)}to{transform:rotate(4deg)}}
 .a-lid{animation:lid 1s ease-in-out infinite}
 @keyframes lid{0%,100%{transform:none}30%{transform:translateY(-16px) rotate(-6deg)}60%{transform:translateY(-4px) rotate(3deg)}}
+.a-hit{animation:hit .5s cubic-bezier(.5,0,.6,1) infinite}
+@keyframes hit{0%,100%{transform:rotate(-30deg)}45%{transform:rotate(18deg)}}
+.a-boom{animation:boom .5s ease-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes boom{0%,40%{opacity:0;transform:scale(.6)}50%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.3)}}
+.a-float{animation:float 2s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+.a-bendj{animation:bendk 1.2s ease-in-out infinite alternate}
+@keyframes bendk{0%,15%{transform:rotate(0)}85%,100%{transform:rotate(-80deg)}}
+.a-neck{animation:neck 1.8s ease-in-out infinite alternate;transform-origin:96px 150px}
+@keyframes neck{from{transform:rotate(-5deg)}to{transform:rotate(5deg)}}
 .pop{animation:pop .6s cubic-bezier(.2,1.6,.4,1) both}
 @keyframes pop{from{transform:scale(0) rotate(-12deg);opacity:0}to{transform:none;opacity:1}}
 .shake{animation:shake .5s ease-in-out}
@@ -131,6 +141,8 @@ svg.art{width:100%;height:100%;display:block;overflow:visible}
 .colitem .cp{height:62px}
 .colitem .cw{font-size:24px;font-weight:800;line-height:1.4}
 .collect .empty{opacity:.0}
+.scr.home{overflow-y:auto;-webkit-overflow-scrolling:touch}
+.scr.home .collect{flex:0 0 auto;overflow:visible;min-height:auto}
 
 /* ---------- machine ---------- */
 .machine{background:linear-gradient(#cdefff 0,#e8f8ff 46%,#bfe9a8 46%,#a7dd8c 100%)}
@@ -291,28 +303,44 @@ svg.art{width:100%;height:100%;display:block;overflow:visible}
 <div class="verbadge" id="verbadge"></div>
 <script>
 'use strict';
-const APP_VERSION = 'V0.2.0';
+const APP_VERSION = 'V0.3.0';
 
 /* =====================================================================
    1) CURRICULUM — ตาม Curriculum Bible ต้นแบบ V0.2 (สระอา / สระอู)
    ===================================================================== */
 const VOWELS = {
   'า': { show: '◌า', say: 'อา' },
-  'ู': { show: '◌ู', say: 'อู' }
+  'ู': { show: '◌ู', say: 'อู' },
+  'ี': { show: '◌ี', say: 'อี' },
+  'อ': { show: '◌อ', say: 'ออ' }
 };
 // ด่าน 1 = คำสระอาที่คนรู้จักทั่วไป (ยกเว้นคำที่กันไว้ทดสอบ / คำที่ใช้ตัวที่ยังไม่สอน)
 const LEVELS = {
   1: { cons: ['ก','ต','ข','น','ฝ','ย','ม','ล','ช'], vows: ['า'], words: ['กา','ตา','ขา','นา','ฝา','ยา','มา','ลา','ชา'] },
   2: { cons: ['ป','ง','ห','ร','ด','ช'],            vows: ['ู'], words: ['ปู','งู','หู','รู','ดู','ชู'] },
   3: { cons: ['ก','ต','ข','น','ฝ','ย','ม','ล','ช','ป','ง','ห','ร','ด','ฮ'], vows: ['า','ู'],
-       words: ['กา','ตา','ขา','นา','ฝา','ยา','มา','ลา','ชา','ปู','งู','หู','รู','ดู','ชู','หา','ปา','งา','ฮา'] }
+       words: ['กา','ตา','ขา','นา','ฝา','ยา','มา','ลา','ชา','ปู','งู','หู','รู','ดู','ชู','หา','ปา','งา','ฮา'], review:true },
+  // V0.3.0 — ด่าน 4 สระอี / ด่าน 5 สระออ (ตามคลังคำ V0.3 + ผังด่าน V0.2)
+  // words = คำหลักมีภาพ (ต้องเสกครบเพื่อไปต่อ) / bonus = คำโบนัส ค้นพบได้ ไม่บังคับ ไม่มีภาพ
+  4: { cons: ['ผ','ส','ต','ป','ร'], vows: ['ี'], words: ['ผี','สี','ตี'], bonus: ['ปี','รี'] },
+  5: { cons: ['ค','จ','ง','ท','ห','ซ','ก','ย'], vows: ['อ'], words: ['คอ','จอ','งอ'], bonus: ['ทอ','หอ','ซอ','กอ','ยอ'] }
 };
-const HOLDOUTS = ['หา','ปา'];                 // คำใหม่สำรองไว้ทดสอบ (ใช้ ป ห จากด่าน 2 + สระอาจากด่าน 1)
+const LEVEL_PIC = { 1:['crow'], 2:['crab'], 3:['crow','crab'], 4:['ghost'], 5:['neck'] };
+// คำใหม่สำรองไว้ทดสอบ แบ่งเป็นกลุ่ม — กลุ่มพร้อมทดสอบเมื่อเสกคำหลักของด่านใน after ครบ
+const HOLD_GROUPS = [
+  { words:['หา','ปา'], after:[1,2] },          // ป ห จากด่าน 2 + สระอาจากด่าน 1
+  { words:['ดี','มี'], after:[4] },            // ด (ด่าน 2) ม (ด่าน 1) + สระอี
+  { words:['ตอ','รอ','ขอ'], after:[5] }        // ต ข (ด่าน 1) ร (ด่าน 2) + สระออ
+];
+const HOLDOUTS = HOLD_GROUPS.flatMap(g => g.words);
 const BANNED   = new Set(['กู']);             // ไม่เหมาะกับแอปเด็ก
 // คำที่มีความหมาย → ชื่อภาพ (null = มีความหมายแต่ไม่มีภาพ)
 const MEANING  = { 'กา':'crow','ตา':'eye','ขา':'leg','นา':'field','ฝา':'lid','ยา':'medicine','มา':'come','ลา':'donkey','ชา':'tea',
                    'ปู':'crab','งู':'snake','หู':'ear','ดู':'look','รู':'hole','ชู':'cheer',
-                   'หา':'search','ปา':'throw','งา':null,'ฮา':'laugh' };
+                   'หา':'search','ปา':'throw','งา':null,'ฮา':'laugh',
+                   'ผี':'ghost','สี':'color','ตี':'hit','ปี':null,'รี':null,
+                   'คอ':'neck','จอ':'screen','งอ':'bend','ทอ':null,'หอ':null,'ซอ':null,'กอ':null,'ยอ':null,
+                   'ดี':null,'มี':null,'ตอ':'stump','รอ':null,'ขอ':null };
 const consSay = c => c + 'อ';
 
 /* =====================================================================
@@ -323,7 +351,7 @@ let storageOK = true;
 function newKid(name, color){
   const hold = {};
   HOLDOUTS.forEach(w => hold[w] = { state:'untested', first:null, attempts:[] });
-  return { name, color, found:{}, manual:{ l2:false, test:false, l3:false }, hold, pc:[], quest:[], rounds:0 };
+  return { name, color, found:{}, manual:{ l2:false, test:false, l3:false, l4:false, l5:false }, hold, pc:[], quest:[], rounds:0 };
 }
 const COLORS = ['#58c4ff','#ff8fc8','#ff9f43','#ff5c5c','#5fd38d','#b48cff','#ffd23f','#36cfc9','#c98b5a','#a3a3bb'];
 const MAX_KIDS = 8;
@@ -374,13 +402,18 @@ function wordAllowed(kid, w, context){
   }
   return true;
 }
-const allFound  = (k, lv) => LEVELS[lv].words.every(w => k.found[w]);
+const allFound  = (k, lv) => LEVELS[lv].review ? true : LEVELS[lv].words.every(w => k.found[w]);
+const LEVEL_NUMS = Object.keys(LEVELS).map(Number);
 function levelOpen(k, n){
   if (n === 1) return true;
   if (n === 2) return allFound(k, 1) || k.manual.l2;
-  return HOLDOUTS.every(w => k.hold[w].state === 'tested') || k.manual.l3;
+  if (n === 3) return HOLD_GROUPS[0].words.every(w => k.hold[w].state === 'tested') || k.manual.l3;   // ทบทวน อา/อู ต้องทดสอบ ปา หา ก่อน
+  if (n === 4) return (allFound(k, 1) && allFound(k, 2)) || !!k.manual.l4;                          // ไม่ต้องรอ Parent Check
+  if (n === 5) return allFound(k, 4) || !!k.manual.l5;
+  return false;
 }
-const testReady = k => (allFound(k,1) && allFound(k,2)) || k.manual.test;
+const groupReady = (k, g) => g.after.every(n => allFound(k, n)) || k.manual.test;
+const holdReady  = (k, w) => groupReady(k, HOLD_GROUPS.find(g => g.words.includes(w)));
 
 /* =====================================================================
    4) VOICE MODULE — แยกออกมา เปลี่ยนวิธีเล่นเสียงได้โดยไม่กระทบเกม
@@ -552,8 +585,18 @@ const ART = {
     const armL = cls => `<g class="${cls}" style="transform-origin:46px 118px">
         <path d="M46 118 Q22 104 18 78" fill="none" stroke="${O}" stroke-width="22" stroke-linecap="round"/>
         <path d="M46 118 Q22 104 18 78" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round"/></g>`;
+    const stick = `<g class="a-hit" style="transform-origin:150px 122px">
+        <path d="M150 122 Q170 116 176 100" fill="none" stroke="${O}" stroke-width="22" stroke-linecap="round"/>
+        <path d="M150 122 Q170 116 176 100" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round"/>
+        <path d="M176 100 L168 140" stroke="${O}" stroke-width="10" stroke-linecap="round"/><path d="M176 100 L168 140" stroke="#c98b5a" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="167" cy="143" r="7" fill="#ff8fc8" stroke="${O}" stroke-width="4"/></g>`;
+    const drum = `<g transform="translate(106 142) scale(.85)"><ellipse cx="62" cy="14" rx="34" ry="11" fill="#fff" stroke="${O}" stroke-width="5"/>
+        <path d="M28 14 L28 44 Q62 62 96 44 L96 14" fill="#ff5d5d" stroke="${O}" stroke-width="5" stroke-linejoin="round"/>
+        <path d="M36 20 L50 48 L64 22 L78 50 L90 22" fill="none" stroke="#ffd23f" stroke-width="4" stroke-linejoin="round"/>
+        <ellipse cx="62" cy="14" rx="34" ry="11" fill="#fff" stroke="${O}" stroke-width="5"/></g>
+        <path class="a-boom" d="M172 112 L164 102 M186 110 L188 98 M198 118 L208 110" stroke="#ffb02e" stroke-width="5" stroke-linecap="round"/>`;
     const armPart = pose === 'wave' || pose === 'walk' ? arm('a-wave') : pose === 'throw' ? arm('')
-      : pose === 'up' ? armL('a-cheerL') + arm('a-cheerR') : '';
+      : pose === 'up' ? armL('a-cheerL') + arm('a-cheerR') : pose === 'hit' ? stick : '';
     return svg(`${shadow}
       <g class="${pose === 'walk' ? 'a-walkin' : pose === 'laugh' ? 'a-laugh' : pose === 'up' ? 'a-jump' : ''}"><g class="a-bob">
       ${armPart}
@@ -564,7 +607,7 @@ const ART = {
       ${pose === 'look' ? binoc : pose === 'laugh' ? laughEyes : eyes}
       ${blush(62, 138, 130)}${mouth}
       ${pose === 'search' ? magnifier : ''}${pose === 'throw' ? ball : ''}
-      </g></g>`);
+      </g></g>${pose === 'hit' ? drum : ''}`);
   },
   lid(){
     return svg(`${shadow}
@@ -727,6 +770,69 @@ const ART = {
       <path d="M54 64 L66 64 L60 74 Z" fill="#ffb02e" stroke="${O}" stroke-width="3" stroke-linejoin="round"/>
       <path d="M50 104 L48 114 M70 104 L72 114" stroke="#ffb02e" stroke-width="5" stroke-linecap="round"/></g>`, '0 0 120 120');
   },
+  ghost(){
+    return svg(`<ellipse cx="100" cy="190" rx="40" ry="6" fill="#00000018"/><g class="a-float">
+      <path d="M44 100 Q44 34 100 34 Q156 34 156 100 L156 166 Q146 178 134 166 Q122 154 110 166 Q100 178 90 166 Q78 154 66 166 Q54 178 44 166 Z" fill="#fff" ${SK}/>
+      <g class="a-wave" style="transform-origin:154px 110px"><path d="M154 110 Q178 98 182 78" fill="none" stroke="${O}" stroke-width="20" stroke-linecap="round"/><path d="M154 110 Q178 98 182 78" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round"/></g>
+      <g class="a-blink"><ellipse cx="82" cy="96" rx="9" ry="13" fill="${O}"/><ellipse cx="118" cy="96" rx="9" ry="13" fill="${O}"/></g>
+      <circle cx="85" cy="90" r="3.5" fill="#fff"/><circle cx="121" cy="90" r="3.5" fill="#fff"/>
+      <ellipse cx="100" cy="124" rx="10" ry="8" fill="${O}"/><ellipse cx="100" cy="128" rx="6" ry="3.5" fill="#ff8fab"/>
+      ${blush(66, 134, 116)}</g>`);
+  },
+  palette(){
+    const blob = (x, y, c, d) => `<circle class="a-twinkle" style="animation-delay:${d}s" cx="${x}" cy="${y}" r="15" fill="${c}" stroke="${O}" stroke-width="4"/>`;
+    return svg(`${shadow}
+      <path d="M100 30 Q176 30 184 98 Q190 150 132 150 Q112 150 116 168 Q120 186 96 186 Q22 182 18 108 Q16 30 100 30 Z" fill="#ffe2b8" ${SK}/>
+      <ellipse cx="130" cy="122" rx="14" ry="11" fill="#fff4e0" stroke="${O}" stroke-width="4"/>
+      ${blob(62, 74, '#ff5d5d', 0)}${blob(104, 60, '#ffd23f', .2)}${blob(146, 78, '#5fd38d', .4)}${blob(52, 118, '#4d96ff', .6)}${blob(84, 150, '#b48cff', .8)}`);
+  },
+  giraffe(){
+    const spot = (x, y, rx, ry) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#d98a3a"/>`;
+    return svg(`${shadow}
+      <ellipse cx="100" cy="172" rx="40" ry="20" fill="#ffd23f" ${SK}/>
+      <g class="a-neck">
+      <path d="M84 168 L80 64 L112 64 L116 168 Z" fill="#ffd23f" ${SK}/>
+      ${spot(96, 90, 7, 5)}${spot(102, 118, 8, 6)}${spot(94, 146, 7, 5)}
+      <path d="M78 38 L74 18 M122 38 L126 18" stroke="${O}" stroke-width="6" stroke-linecap="round"/><circle cx="74" cy="16" r="6" fill="#c98b5a" stroke="${O}" stroke-width="4"/><circle cx="126" cy="16" r="6" fill="#c98b5a" stroke="${O}" stroke-width="4"/>
+      <ellipse cx="100" cy="54" rx="36" ry="28" fill="#ffd23f" ${SK}/>
+      <ellipse cx="100" cy="68" rx="22" ry="13" fill="#ffe8a8" stroke="${O}" stroke-width="4"/>
+      <circle cx="93" cy="68" r="2.5" fill="${O}"/><circle cx="107" cy="68" r="2.5" fill="${O}"/>
+      <g class="a-blink"><circle cx="84" cy="48" r="6" fill="${O}"/><circle cx="116" cy="48" r="6" fill="${O}"/></g>
+      <circle cx="86" cy="46" r="2.2" fill="#fff"/><circle cx="118" cy="46" r="2.2" fill="#fff"/></g>
+      <path class="a-twinkle" d="M138 96 L150 90 M140 116 L154 116 M138 136 L150 142" stroke="#58c4ff" stroke-width="5" stroke-linecap="round"/>
+      <path class="a-twinkle" style="animation-delay:.5s" d="M62 96 L50 90 M60 116 L46 116 M62 136 L50 142" stroke="#58c4ff" stroke-width="5" stroke-linecap="round"/>`);
+  },
+  tv(){
+    return svg(`${shadow}
+      <path d="M78 34 L100 54 L122 30" fill="none" stroke="${O}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M72 168 L64 186 M128 168 L136 186" stroke="${O}" stroke-width="8" stroke-linecap="round"/>
+      <rect x="22" y="54" width="156" height="116" rx="22" fill="#b48cff" ${SK}/>
+      <rect x="38" y="70" width="124" height="84" rx="12" fill="#9fe0ff" stroke="${O}" stroke-width="5"/>
+      <g class="a-bob"><circle cx="100" cy="112" r="22" fill="#ffd23f" stroke="${O}" stroke-width="4"/>
+      <circle cx="92" cy="108" r="3.5" fill="${O}"/><circle cx="108" cy="108" r="3.5" fill="${O}"/>
+      <path d="M92 118 Q100 125 108 118" fill="none" stroke="${O}" stroke-width="3.5" stroke-linecap="round"/></g>
+      <path d="M48 80 Q58 74 68 76" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/>`);
+  },
+  bend(){
+    return svg(`${shadow}
+      <rect x="40" y="174" width="120" height="14" rx="7" fill="#c98b5a" stroke="${O}" stroke-width="5"/>
+      <path d="M100 176 L100 108" stroke="${O}" stroke-width="26" stroke-linecap="round"/>
+      <path d="M100 176 L100 108" stroke="#5fd38d" stroke-width="14" stroke-linecap="round"/>
+      <path d="M100 156 L100 142 M100 130 L100 118" stroke="#3f8f3a" stroke-width="5" stroke-linecap="round"/>
+      <g class="a-bendj" style="transform-origin:100px 108px"><path d="M100 108 L100 44" stroke="${O}" stroke-width="26" stroke-linecap="round"/>
+      <path d="M100 108 L100 44" stroke="#5fd38d" stroke-width="14" stroke-linecap="round"/>
+      <path d="M100 90 L100 76 M100 66 L100 54" stroke="#3f8f3a" stroke-width="5" stroke-linecap="round"/>
+      <circle cx="100" cy="38" r="16" fill="#ff8fc8" stroke="${O}" stroke-width="5"/></g>
+      <circle cx="100" cy="108" r="9" fill="#ffd23f" stroke="${O}" stroke-width="4"/>`);
+  },
+  stump(){
+    return svg(`${shadow}
+      <path d="M50 92 L44 178 Q100 194 156 178 L150 92 Z" fill="#c98b5a" ${SK}/>
+      <path d="M44 178 L28 188 M156 178 L172 188" stroke="${O}" stroke-width="7" stroke-linecap="round"/>
+      <ellipse cx="100" cy="92" rx="50" ry="18" fill="#f2c98f" ${SK}/>
+      <ellipse cx="100" cy="92" rx="30" ry="10" fill="none" stroke="#c98b5a" stroke-width="4"/><ellipse cx="100" cy="92" rx="12" ry="4" fill="none" stroke="#c98b5a" stroke-width="4"/>
+      <path class="a-sway" style="transform-origin:150px 120px" d="M150 120 Q176 104 172 80 Q160 96 150 120 Z" fill="#7fd36b" stroke="${O}" stroke-width="4" stroke-linejoin="round"/>`);
+  },
   star(){
     return svg(`<path d="M20 2 L25.5 14 L38.5 15 L28.5 23.5 L31.5 37 L20 30 L8.5 37 L11.5 23.5 L1.5 15 L14.5 14 Z" fill="#ffd23f" stroke="${O}" stroke-width="3" stroke-linejoin="round"/>`, '0 0 40 40');
   }
@@ -771,9 +877,14 @@ function picFor(word, kid){
     case 'lid': return ART.lid();
     case 'medicine': return ART.medicine();
     case 'tea': return ART.tea();
+    case 'ghost': return ART.ghost();   case 'color': return ART.palette();
+    case 'hit': return ART.mascot(c, 'hit');
+    case 'neck': return ART.giraffe();  case 'screen': return ART.tv();
+    case 'bend': return ART.bend();     case 'stump': return ART.stump();
     default: return null;
   }
 }
+const artByName = (name, k) => name === 'crow' ? ART.crow() : name === 'crab' ? ART.crab() : name === 'ghost' ? ART.ghost() : name === 'neck' ? ART.giraffe() : ART.star();
 const wordHtml = w => `<span class="wd${/[ุู]/.test(w) ? ' vb' : ''}"><span class="wbase">${w}</span><span class="wover">${w[0]}</span></span>`;
 const vShow = v => `<span class="${v === 'ู' ? 'vb' : ''}">${VOWELS[v].show}</span>`;
 
@@ -817,7 +928,7 @@ function viewHome(){
   const k = kid();
   const lv = n => {
     const open = levelOpen(k, n);
-    const pic = n === 1 ? `<div>${ART.crow()}</div>` : n === 2 ? `<div>${ART.crab()}</div>` : `<div>${ART.crow()}</div><div>${ART.crab()}</div>`;
+    const pic = LEVEL_PIC[n].map(p => `<div>${artByName(p, k)}</div>`).join('');
     const v = LEVELS[n].vows.map(vShow).join(' ');
     return `<button class="lvl ${open ? '' : 'locked'}" data-act="level" data-n="${n}"><span class="lvn">${n}</span>
       <div class="lvpic">${pic}</div><div class="lvv">${v}</div>${open ? '' : `<div class="lock">${ICON.lock}</div>`}</button>`;
@@ -831,7 +942,7 @@ function viewHome(){
       <button class="ibtn hold" data-hold="parent"><span class="fill"></span>${ICON.gear}</button></div>
     <div class="homehero" data-act="palette">${ART.mascot(k.color, 'wave')}</div>
     ${ui.palette ? `<div class="palette swatches">${COLORS.map(c => `<button class="sw ${c === k.color ? 'on' : ''}" data-act="color" data-c="${c}" style="background:${c}"></button>`).join('')}</div>` : ''}
-    <div class="levels">${lv(1)}${lv(2)}${lv(3)}</div>
+    <div class="levels">${LEVEL_NUMS.map(lv).join('')}</div>
     <div class="collect">${col}</div>
   </div>`;
 }
@@ -876,12 +987,13 @@ function fillSlots(){
   document.querySelectorAll('.card').forEach(el => el.classList.toggle('pick', (el.dataset.k === 'c' && el.dataset.val === ui.c) || (el.dataset.k === 'v' && el.dataset.val === ui.v)));
 }
 // แถบภาพเงา: คำของด่านนี้ที่ยังไม่เจอเป็นเงาดำ เจอแล้วเป็นสี
-function levelWords(){ const k = kid(); return ui.level === 3 ? [] : LEVELS[ui.level].words.filter(w => MEANING[w] !== undefined && wordAllowed(k, w, 'game')); }
+function levelWords(){ const k = kid(), L = LEVELS[ui.level]; return L.review ? [] : L.words.filter(w => MEANING[w] && wordAllowed(k, w, 'game')); }
 function stripHtml(){
   const k = kid(), ws = levelWords(); if (!ws.length) return '';
   return `<div class="strip" id="strip">${ws.map(w => `<div class="si ${k.found[w] ? '' : 'no'}" data-sw="${w}">${picFor(w, k)}</div>`).join('')}</div>`;
 }
-function nextAvail(){ const k = kid(); return ui.level < 3 && allFound(k, ui.level) && levelOpen(k, ui.level + 1); }
+function nextLevelNum(){ const k = kid(); return LEVEL_NUMS.find(n => n > ui.level && levelOpen(k, n)) || 0; }
+function nextAvail(){ const k = kid(); return !LEVELS[ui.level].review && allFound(k, ui.level) && nextLevelNum() > 0; }
 function addNextButton(){
   if (document.querySelector('.ibtn.next') || !nextAvail()) return;
   const sp = document.querySelector('.top [data-act="replay"]'); if (!sp) return;
@@ -1008,20 +1120,21 @@ async function blend(my){
   } else scheduleHint();
 }
 function recordFound(w, my){
-  const k = kid(); const before = levelOpen(k, 2);
-  const wasDone = ui.level < 3 && allFound(k, ui.level), isNew = !k.found[w];
+  const k = kid(); const before = LEVEL_NUMS.filter(n => levelOpen(k, n));
+  const rev = LEVELS[ui.level].review;
+  const wasDone = !rev && allFound(k, ui.level), isNew = !k.found[w];
   k.found[w] = (k.found[w] || 0) + 1; save();
   const si = document.querySelector(`.si[data-sw="${w}"]`);
   if (si && isNew){ si.classList.remove('no'); restartClass(si, 'pop'); }
-  if (!wasDone && ui.level < 3 && allFound(k, ui.level)) ui.levelDone = true;
-  if (!before && levelOpen(k, 2)) setTimeout(() => { if (my === token) Voice.sfx.tada(); }, 400);
-  if (!before && levelOpen(k, 2)) ui.newLevel = true;
+  if (!wasDone && !rev && allFound(k, ui.level)) ui.levelDone = true;
+  const opened = LEVEL_NUMS.find(n => levelOpen(k, n) && !before.includes(n));
+  if (opened){ ui.newLevel = opened; setTimeout(() => { if (my === token) Voice.sfx.tada(); }, 400); }
 }
 
 /* ---------- quest (โหมดโจทย์ของเครื่องเสกคำ) ---------- */
 function startQuest(){
   const k = kid();
-  const pool = LEVELS[ui.level].words.filter(w => wordAllowed(k, w, 'game') && w !== 'งา');
+  const pool = LEVELS[ui.level].words.filter(w => MEANING[w] && wordAllowed(k, w, 'game'));
   let t = []; while (t.length < 5){ const s = shuffle(pool); for (const w of s){ if (t.length < 5 && t[t.length - 1] !== w) t.push(w); } }
   ui.quest = { targets:t, i:0, tries:0 };
   ui.c = null; ui.v = null; ui.mode = 'quest';
@@ -1078,7 +1191,7 @@ app.addEventListener('click', e => {
   else if (act === 'profiles') go('profiles');
   else if (act === 'home'){
     ui.quest = null; go('home');
-    if (ui.newLevel){ ui.newLevel = false; Voice.sfx.tada(); Voice.say('เปิดด่านใหม่แล้ว'); setTimeout(() => restartClass(document.querySelector('.lvl[data-n="2"]'), 'cheer'), 200); }
+    if (ui.newLevel){ const n = ui.newLevel; ui.newLevel = false; Voice.sfx.tada(); Voice.say('เปิดด่านใหม่แล้ว'); setTimeout(() => restartClass(document.querySelector(`.lvl[data-n="${n}"]`), 'cheer'), 200); }
   }
   else if (act === 'level'){
     const n = +t.dataset.n;
@@ -1088,7 +1201,7 @@ app.addEventListener('click', e => {
   }
   else if (act === 'next-level'){
     if (!nextAvail()) return;
-    ui.level++; ui.mode = 'free'; ui.quest = null; ui.c = null; ui.v = null; ui.newLevel = false; go('machine');
+    ui.level = nextLevelNum(); ui.mode = 'free'; ui.quest = null; ui.c = null; ui.v = null; ui.newLevel = false; go('machine');
     setTimeout(() => { Voice.sfx.tada(); Voice.say('ด่านใหม่ แตะตัวสีฟ้า แล้วแตะตัวสีส้มนะ'); scheduleHint(); }, 300);
   }
   else if (act === 'mode-free'){ ui.mode = 'free'; ui.quest = null; ui.c = null; ui.v = null; go('machine'); }
@@ -1198,7 +1311,7 @@ function renderParent(){
 function parentProgress(k){
   const store = storageOK ? 'บันทึกข้อมูลในเครื่องได้ ✓' : '⚠ บันทึกข้อมูลไม่ได้ — ปิดแอปแล้วข้อมูลจะหาย ให้เปิดผ่านเว็บของ WordPop จึงจะเก็บความก้าวหน้าได้';
   const lvRow = n => {
-    const ws = n === 3 ? [] : LEVELS[n].words;
+    const ws = LEVELS[n].review ? [] : LEVELS[n].words;
     const chips = ws.map(w => `<span class="${k.found[w] ? 'ok' : ''}">${w}</span>`).join('');
     const cnt = ws.length ? ` • เสกแล้ว ${ws.filter(w => k.found[w]).length}/${ws.length}` : '';
     return `<tr><td>ด่าน ${n}</td><td>${levelOpen(k, n) ? 'เปิดแล้ว' : 'ยังล็อก'}${cnt}<div class="wordchips">${chips}</div></td></tr>`;
@@ -1211,8 +1324,8 @@ function parentProgress(k){
   const holdTested = HOLDOUTS.filter(w => k.hold[w].first), holdOk = holdTested.filter(w => k.hold[w].first.r === 'ok').length;
   const holdHes = holdTested.filter(w => k.hold[w].first.r === 'hes').length;
   return `<div class="pcard"><div class="muted">${store}</div></div>
-  <div class="pcard"><h3>ด่าน (${k.name})</h3><table>${lvRow(1)}${lvRow(2)}${lvRow(3)}</table>
-    <div class="muted">ด่าน 2 เปิดเมื่อเสกคำด่าน 1 ครบ • การทดสอบคำใหม่เปิดเมื่อเสกครบด่าน 1 และ 2 • ด่าน 3 เปิดเมื่อทดสอบคำใหม่ครบ</div></div>
+  <div class="pcard"><h3>ด่าน (${k.name})</h3><table>${LEVEL_NUMS.map(lvRow).join('')}</table>
+    <div class="muted">ด่าน 2 เปิดเมื่อเสกด่าน 1 ครบ • ด่าน 4 (สระอี) เปิดเมื่อเสกด่าน 1 และ 2 ครบ • ด่าน 5 (สระออ) เปิดเมื่อเสกด่าน 4 ครบ • ด่าน 3 (ทบทวน อา/อู) เปิดเมื่อทดสอบ ปา หา แล้ว • คำโบนัสไม่บังคับ</div></div>
   <div class="pcard"><h3>C. คำใหม่ (ผลครั้งแรก — เก็บถาวร)</h3>
     <div>อ่านได้เองทันที ${holdOk}/${holdTested.length} • อ่านได้เองแต่ลังเล ${holdHes}/${holdTested.length}</div>
     <table><tr><th>คำ</th><th>สถานะ</th><th>ผลครั้งแรก</th><th>เมื่อ</th></tr>${hold}</table></div>
@@ -1223,13 +1336,15 @@ function parentProgress(k){
     <div>ถูกครั้งแรก ${frac(qFirst, q.length)} • เล่นจบ ${k.rounds} รอบ</div></div>`;
 }
 function parentPC(k){
-  const ready = testReady(k), left = HOLDOUTS.filter(w => k.hold[w].state !== 'tested');
+  const left = HOLDOUTS.filter(w => k.hold[w].state !== 'tested'), readyW = left.filter(w => holdReady(k, w));
+  const ready = readyW.length > 0;
   const learned = Object.keys(MEANING).filter(w => k.found[w] && wordAllowed(k, w, 'game'));
   return `<div class="pcard"><h3>ทดสอบคำใหม่</h3>
     <div class="muted">คำที่ลูกไม่เคยเห็นในเกม แต่ประกอบจากตัวที่รู้จักแล้ว • ผลครั้งแรกเก็บถาวร</div>
     ${!left.length ? '<p>ทดสอบครบทุกคำแล้ว ✓</p>' : ready
-      ? `<button class="pbtn" data-p="pc-new">เริ่มทดสอบคำใหม่ (${left.length} คำ)</button>`
-      : `<p class="muted">ยังไม่พร้อม — ต้องให้ ${k.name} เสกคำครบด่าน 1 และด่าน 2 ก่อน (หรือเปิดเองในแท็บตั้งค่า)</p>`}</div>
+      ? `<button class="pbtn" data-p="pc-new">เริ่มทดสอบคำใหม่ (${readyW.length} คำ)</button>`
+      : `<p class="muted">ยังไม่พร้อม — คำทดสอบแต่ละชุดพร้อมเมื่อ ${esc(k.name)} เสกคำหลักของด่านที่เกี่ยวข้องครบ (ปา หา: ด่าน 1+2 • ดี มี: ด่าน 4 • ตอ รอ ขอ: ด่าน 5) หรือเปิดเองในแท็บตั้งค่า</p>`}
+    ${left.length > readyW.length ? `<div class="muted">ยังรออีก ${left.length - readyW.length} คำ ที่ยังไม่ถึงเวลาทดสอบ</div>` : ''}</div>
   <div class="pcard"><h3>ฝึกอ่านคำที่เรียนแล้ว</h3>
     <div class="muted">เลือกจากคำที่ลูกเคยเสกแล้ว สุ่มไม่เกิน 6 คำ</div>
     ${learned.length ? `<button class="pbtn alt" data-p="pc-practice">เริ่มฝึกอ่าน</button>` : '<p class="muted">ยังไม่มีคำที่เรียนแล้ว</p>'}</div>
@@ -1276,7 +1391,7 @@ function parentSettings(k){
     <div class="prow"><label>ความเร็วเสียงพูดทั่วไป <b id="v2">${s.rate.toFixed(2)}</b><input type="range" min="0.6" max="1.3" step="0.05" value="${s.rate}" data-set="rate"></label></div>
     <div class="prow"><label>ช่วงเว้นระหว่างเสียงสะกด <b id="v3">${s.gap} ms</b><input type="range" min="0" max="1000" step="50" value="${s.gap}" data-set="gap"></label></div></div>
   <div class="pcard"><h3>ปลดล็อกเอง (${k.name})</h3>
-    ${tog('l2', 'เปิดด่าน 2')}${tog('test', 'เปิดการทดสอบคำใหม่')}${tog('l3', 'เปิดด่าน 3')}
+    ${tog('l2', 'เปิดด่าน 2')}${tog('l4', 'เปิดด่าน 4 (สระอี)')}${tog('l5', 'เปิดด่าน 5 (สระออ)')}${tog('test', 'เปิดการทดสอบคำใหม่ทุกชุด')}${tog('l3', 'เปิดด่าน 3 (ทบทวน)')}
     <div class="muted">ถ้าเปิดด่าน 3 ก่อนทดสอบคำใหม่ เครื่องเสกคำจะยังไม่ยอมผสม หา / ปา / งา จนกว่าจะทดสอบ</div></div>
   <div class="pcard"><h3>รีเซ็ต</h3>
     <button class="pbtn warn" data-p="reset">${pui.confirmReset ? 'กดอีกครั้งเพื่อยืนยัน — ล้างความก้าวหน้าของ ' + esc(k.name) : 'ล้างความก้าวหน้าของ ' + esc(k.name)}</button>
@@ -1337,7 +1452,7 @@ let pc = null;
 function startPC(kind){
   const k = state.kids[pui.kidId];
   let list;
-  if (kind === 'new') list = HOLDOUTS.filter(w => k.hold[w].state !== 'tested');
+  if (kind === 'new') list = HOLDOUTS.filter(w => k.hold[w].state !== 'tested' && holdReady(k, w));
   else list = shuffle(Object.keys(MEANING).filter(w => k.found[w] && wordAllowed(k, w, 'game'))).slice(0, 6);
   if (!list.length) return;
   pc = { kind, list, i:0, answered:false, el:document.createElement('div') };
