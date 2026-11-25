@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#fff4e0">
-<title>WordPop V0.3.0</title>
+<title>WordPop V0.3.1</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -303,7 +303,7 @@ svg.art{width:100%;height:100%;display:block;overflow:visible}
 <div class="verbadge" id="verbadge"></div>
 <script>
 'use strict';
-const APP_VERSION = 'V0.3.0';
+const APP_VERSION = 'V0.3.1';
 
 /* =====================================================================
    1) CURRICULUM — ตาม Curriculum Bible ต้นแบบ V0.2 (สระอา / สระอู)
@@ -1088,13 +1088,18 @@ function choose(k, val, el, dropped){
     if (both) blend(my);
   }, dur);
 }
+// V0.3.0 แก้บั๊ก: แตะปุ่มฟังซ้ำ/กล่องคำระหว่างเครื่องกำลังสะกด เคยทำให้ภาพไม่โผล่และคำไม่ถูกนับ
 async function blend(my){
+  ui.blending = my;
+  try { await blendInner(my); } finally { if (ui.blending === my) ui.blending = 0; }
+}
+async function blendInner(my){
   const k = kid(), w = ui.c + ui.v;
   restartClass($('#mach'), 'shake'); Voice.sfx.sparkle();
   setResult(w);
   let shown = false;
   const show = () => {
-    if (shown || my !== token) return; shown = true;
+    if (shown || ui.screen !== 'machine' || ui.c + ui.v !== w) return; shown = true;   // ผูกกับคำบนเครื่อง ไม่ใช่ token
     const pic = MEANING[w] !== undefined && wordAllowed(k, w, 'game') ? picFor(w, k) : null;
     if (pic){ setPic(pic); reveal(w, pic); } else { setPic(ART.mascot(k.color, 'wave')); burst(); }
     Voice.sfx.pop();
@@ -1207,6 +1212,7 @@ app.addEventListener('click', e => {
   else if (act === 'mode-free'){ ui.mode = 'free'; ui.quest = null; ui.c = null; ui.v = null; go('machine'); }
   else if (act === 'mode-quest'){ token++; Voice.stop(); ui.screen = 'machine'; startQuest(); }
   else if (act === 'replay'){
+    if (ui.blending) return;                       // เครื่องกำลังสะกดอยู่ → ไม่ตัดกลางคัน
     if (ui.mode === 'quest' && ui.quest) prompt();
     else if (ui.c && ui.v){ const my = ++token; restartClass($('#res'), 'glow'); Voice.spell(ui.c, ui.v, ui.c + ui.v, { onPart: i => { if (my === token) restartClass(i === 0 ? $('#sc') : i === 1 ? $('#sv') : $('#res'), 'glow'); } }); }
     else Voice.say('แตะตัวสีฟ้า แล้วแตะตัวสีส้มนะ');
